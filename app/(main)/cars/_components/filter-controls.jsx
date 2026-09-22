@@ -16,28 +16,28 @@ export const CarFilterControls = ({
     {
       id: "make",
       title: "Make",
-      options: (filters?.makes || []).map((make) => ({ value: make, label: make })),
+      options: filters.makes.map((make) => ({ value: make, label: make })),
       currentValue: make,
       onChange: (value) => onFilterChange("make", value),
     },
     {
       id: "bodyType",
       title: "Body Type",
-      options: (filters?.bodyTypes || []).map((type) => ({ value: type, label: type })),
+      options: filters.bodyTypes.map((type) => ({ value: type, label: type })),
       currentValue: bodyType,
       onChange: (value) => onFilterChange("bodyType", value),
     },
     {
       id: "fuelType",
       title: "Fuel Type",
-      options: (filters?.fuelTypes || []).map((type) => ({ value: type, label: type })),
+      options: filters.fuelTypes.map((type) => ({ value: type, label: type })),
       currentValue: fuelType,
       onChange: (value) => onFilterChange("fuelType", value),
     },
     {
       id: "transmission",
       title: "Transmission",
-      options: (filters?.transmissions || []).map((type) => ({
+      options: filters.transmissions.map((type) => ({
         value: type,
         label: type,
       })),
@@ -52,8 +52,8 @@ export const CarFilterControls = ({
         <h3 className="font-medium">Price Range</h3>
         <div className="px-2">
           <Slider
-            min={filters?.priceRange?.min ?? 0}
-            max={filters?.priceRange?.max ?? 100000}
+            min={filters.priceRange.min}
+            max={filters.priceRange.max}
             step={100}
             value={priceRange}
             onValueChange={(value) => onFilterChange("priceRange", value)}

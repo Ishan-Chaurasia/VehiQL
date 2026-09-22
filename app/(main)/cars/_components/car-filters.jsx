@@ -22,13 +22,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const CarFilters = ({ filters = {} }) => {
+const CarFilters = ({ filters }) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  const priceMin = filters?.priceRange?.min ?? 0;
-  const priceMax = filters?.priceRange?.max ?? 100000;
 
   // Get current filter values from searchParams
   const currentMake = searchParams.get("make") || "";
@@ -37,10 +34,10 @@ const CarFilters = ({ filters = {} }) => {
   const currentTransmission = searchParams.get("transmission") || "";
   const currentMinPrice = searchParams.get("minPrice")
     ? parseInt(searchParams.get("minPrice"))
-    : priceMin;
+    : filters.priceRange.min;
   const currentMaxPrice = searchParams.get("maxPrice")
     ? parseInt(searchParams.get("maxPrice"))
-    : priceMax;
+    : filters.priceRange.max;
   const currentSortBy = searchParams.get("sortBy") || "newest";
 
   // Local state for filters
@@ -79,7 +76,8 @@ const CarFilters = ({ filters = {} }) => {
     bodyType,
     fuelType,
     transmission,
-    currentMinPrice > priceMin || currentMaxPrice < priceMax,
+    currentMinPrice > filters.priceRange.min ||
+      currentMaxPrice < filters.priceRange.max,
   ].filter(Boolean).length;
 
   // Update URL when filters change
@@ -90,9 +88,9 @@ const CarFilters = ({ filters = {} }) => {
     if (bodyType) params.set("bodyType", bodyType);
     if (fuelType) params.set("fuelType", fuelType);
     if (transmission) params.set("transmission", transmission);
-    if (priceRange[0] > priceMin)
+    if (priceRange[0] > filters.priceRange.min)
       params.set("minPrice", priceRange[0].toString());
-    if (priceRange[1] < priceMax)
+    if (priceRange[1] < filters.priceRange.max)
       params.set("maxPrice", priceRange[1].toString());
     if (sortBy !== "newest") params.set("sortBy", sortBy);
 
@@ -116,8 +114,8 @@ const CarFilters = ({ filters = {} }) => {
     sortBy,
     pathname,
     searchParams,
-    priceMin,
-    priceMax,
+    filters.priceRange.min,
+    filters.priceRange.max,
   ]);
 
   // Handle filter changes
@@ -152,7 +150,7 @@ const CarFilters = ({ filters = {} }) => {
     setBodyType("");
     setFuelType("");
     setTransmission("");
-    setPriceRange([priceMin, priceMax]);
+    setPriceRange([filters.priceRange.min, filters.priceRange.max]);
     setSortBy("newest");
 
     // Keep search term if exists
@@ -174,8 +172,8 @@ const CarFilters = ({ filters = {} }) => {
     fuelType,
     transmission,
     priceRange,
-    priceRangeMin: priceMin,
-    priceRangeMax: priceMax,
+    priceRangeMin: filters.priceRange.min,
+    priceRangeMax: filters.priceRange.max,
   };
 
   return (

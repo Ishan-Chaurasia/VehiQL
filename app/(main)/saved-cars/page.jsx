@@ -2,7 +2,6 @@ import { getSavedCars } from "@/actions/car-listing";
 import { auth } from "@clerk/nextjs/server";
 import React from "react";
 import SavedCarsList from "./_components/saved-cars-list";
-import { redirect } from "next/navigation";
 
 const SavedCars = async () => {
   const { userId } = await auth();

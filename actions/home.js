@@ -5,9 +5,8 @@ import { serializeCarData } from "@/lib/helper";
 import { db } from "@/lib/prisma";
 import { request } from "@arcjet/next";
 import { GoogleGenAI } from "@google/genai";
-import { featuredCars as fallbackCars } from "@/lib/data";
 
-export async function getFeaturedCars(limit = 6) {
+export async function getFeaturedCars(limit = 3) {
   try {
     const cars = await db.car.findMany({
       where: {
@@ -18,13 +17,9 @@ export async function getFeaturedCars(limit = 6) {
       orderBy: { createdAt: "desc" },
     });
 
-    if (cars && cars.length > 0) {
-      return cars.map(serializeCarData);
-    }
-    return fallbackCars.map(serializeCarData);
+    return cars.map(serializeCarData);
   } catch (error) {
-    console.error("Error fetching featured cars:", error);
-    return fallbackCars.map(serializeCarData);
+    throw new error("Error fetching featured cars:" + error.message);
   }
 }
 
