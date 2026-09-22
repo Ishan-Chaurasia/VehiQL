@@ -7,8 +7,9 @@ import { OK } from "zod/v3";
 
 export async function getAdmin() {
   const { userId } = await auth();
-  // Do something with the authenticated user ID
-  if (!userId) throw new Error("Unauthorized");
+  if (!userId) {
+    return { authorized: false, reason: "Unauthenticated" };
+  }
 
   // Fetch admin-specific data
   const user = await db.user.findUnique({
