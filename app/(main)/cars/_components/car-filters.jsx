@@ -34,10 +34,10 @@ const CarFilters = ({ filters }) => {
   const currentTransmission = searchParams.get("transmission") || "";
   const currentMinPrice = searchParams.get("minPrice")
     ? parseInt(searchParams.get("minPrice"))
-    : filters?.priceRange?.min ?? 0;
+    : filters.priceRange.min;
   const currentMaxPrice = searchParams.get("maxPrice")
     ? parseInt(searchParams.get("maxPrice"))
-    : filters?.priceRange?.max ?? 100000;
+    : filters.priceRange.max;
   const currentSortBy = searchParams.get("sortBy") || "newest";
 
   // Local state for filters
