@@ -5,6 +5,99 @@ import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { includes, success } from "zod";
+import { allCars as fallbackAllCars } from "@/lib/data";
+
+function getFallbackFilters() {
+  const available = fallbackAllCars.filter((c) => c.status === "AVAILABLE");
+  const makes = [...new Set(available.map((c) => c.make))].sort();
+  const bodyTypes = [...new Set(available.map((c) => c.bodyType))].sort();
+  const fuelTypes = [...new Set(available.map((c) => c.fuelType))].sort();
+  const transmissions = [
+    ...new Set(available.map((c) => c.transmission)),
+  ].sort();
+  const prices = available.map((c) => c.price);
+  const min = prices.length ? Math.min(...prices) : 0;
+  const max = prices.length ? Math.max(...prices) : 100000;
+
+  return {
+    makes,
+    bodyTypes,
+    fuelTypes,
+    transmissions,
+    priceRange: { min, max },
+  };
+}
+
+function filterFallbackCars({
+  search = "",
+  make = "",
+  bodyType = "",
+  fuelType = "",
+  transmission = "",
+  minPrice = 0,
+  maxPrice = Number.MAX_SAFE_INTEGER,
+  sortBy = "newest",
+  page = 1,
+  limit = 6,
+}) {
+  let cars = fallbackAllCars.filter((c) => c.status === "AVAILABLE");
+
+  if (search) {
+    const s = search.toLowerCase();
+    cars = cars.filter(
+      (c) =>
+        c.make.toLowerCase().includes(s) ||
+        c.model.toLowerCase().includes(s) ||
+        c.description?.toLowerCase().includes(s)
+    );
+  }
+
+  if (make) {
+    cars = cars.filter((c) => c.make.toLowerCase() === make.toLowerCase());
+  }
+  if (bodyType) {
+    cars = cars.filter(
+      (c) => c.bodyType.toLowerCase() === bodyType.toLowerCase()
+    );
+  }
+  if (fuelType) {
+    cars = cars.filter(
+      (c) => c.fuelType.toLowerCase() === fuelType.toLowerCase()
+    );
+  }
+  if (transmission) {
+    cars = cars.filter(
+      (c) => c.transmission.toLowerCase() === transmission.toLowerCase()
+    );
+  }
+
+  const min = parseFloat(minPrice) || 0;
+  const max = parseFloat(maxPrice) || Number.MAX_SAFE_INTEGER;
+  cars = cars.filter((c) => c.price >= min && c.price <= max);
+
+  if (sortBy === "priceAsc") {
+    cars.sort((a, b) => a.price - b.price);
+  } else if (sortBy === "priceDesc") {
+    cars.sort((a, b) => b.price - a.price);
+  } else {
+    cars.sort((a, b) => b.year - a.year);
+  }
+
+  const total = cars.length;
+  const skip = (page - 1) * limit;
+  const paginated = cars.slice(skip, skip + limit);
+
+  return {
+    success: true,
+    data: paginated.map((c) => serializeCarData(c, false)),
+    pagination: {
+      total,
+      page,
+      limit,
+      pages: Math.ceil(total / limit) || 1,
+    },
+  };
+}
 
 export async function getCarFilters() {
   try {
@@ -15,6 +108,13 @@ export async function getCarFilters() {
       distinct: ["make"],
       orderBy: { make: "asc" },
     });
+
+    if (!makes || makes.length === 0) {
+      return {
+        success: true,
+        data: getFallbackFilters(),
+      };
+    }
 
     // Get unique body types
     const bodyTypes = await db.car.findMany({
@@ -67,14 +167,8 @@ export async function getCarFilters() {
   } catch (error) {
     console.error("Error fetching car filters:", error);
     return {
-      success: false,
-      data: {
-        makes: [],
-        bodyTypes: [],
-        fuelTypes: [],
-        transmissions: [],
-        priceRange: { min: 0, max: 100000 },
-      },
+      success: true,
+      data: getFallbackFilters(),
     };
   }
 }
@@ -175,6 +269,22 @@ export async function getCars({
       serializeCarData(car, wishlisted.has(car.id)),
     );
 
+    // If database returned 0 cars, fall back to our catalog
+    if (totalCars === 0 && !search && !make && !bodyType && !fuelType && !transmission && minPrice === 0) {
+      return filterFallbackCars({
+        search,
+        make,
+        bodyType,
+        fuelType,
+        transmission,
+        minPrice,
+        maxPrice,
+        sortBy,
+        page,
+        limit,
+      });
+    }
+
     return {
       success: true,
       data: serializedCars,
@@ -186,7 +296,19 @@ export async function getCars({
       },
     };
   } catch (error) {
-    throw new Error("Error fetching cars:" + error.message);
+    console.error("Error fetching cars from DB, using fallback:", error);
+    return filterFallbackCars({
+      search,
+      make,
+      bodyType,
+      fuelType,
+      transmission,
+      minPrice,
+      maxPrice,
+      sortBy,
+      page,
+      limit,
+    });
   }
 }
 
@@ -317,6 +439,17 @@ export async function getCarById(carId) {
     });
 
     if (!car) {
+      const fallbackCar = fallbackAllCars.find((c) => c.id === carId);
+      if (fallbackCar) {
+        return {
+          success: true,
+          data: {
+            ...serializeCarData(fallbackCar, false),
+            testDriveInfo: { userTestDrive: null, dealership: null },
+          },
+        };
+      }
+
       return {
         success: false,
         error: "Car not found",
@@ -389,6 +522,20 @@ export async function getCarById(carId) {
       },
     };
   } catch (error) {
-    throw new Error("Error fetching car details:" + error.message);
+    console.error("Error fetching car details from DB:", error);
+    const fallbackCar = fallbackAllCars.find((c) => c.id === carId);
+    if (fallbackCar) {
+      return {
+        success: true,
+        data: {
+          ...serializeCarData(fallbackCar, false),
+          testDriveInfo: { userTestDrive: null, dealership: null },
+        },
+      };
+    }
+    return {
+      success: false,
+      error: "Car not found",
+    };
   }
 }
