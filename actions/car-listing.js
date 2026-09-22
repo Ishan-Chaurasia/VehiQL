@@ -4,7 +4,6 @@ import { serializeCarData } from "@/lib/helper";
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
-import { error } from "next/dist/build/output/log";
 import { includes, success } from "zod";
 
 export async function getCarFilters() {
@@ -56,17 +55,27 @@ export async function getCarFilters() {
         fuelTypes: fuelTypes.map((item) => item.fuelType),
         transmissions: transmissions.map((item) => item.transmission),
         priceRange: {
-          min: priceAggregations._min.price
+          min: priceAggregations?._min?.price
             ? parseFloat(priceAggregations._min.price.toString())
             : 0,
-          max: priceAggregations._max.price
+          max: priceAggregations?._max?.price
             ? parseFloat(priceAggregations._max.price.toString())
             : 100000,
         },
       },
     };
   } catch (error) {
-    throw new Error("Error fetching car filters:" + error.message);
+    console.error("Error fetching car filters:", error);
+    return {
+      success: false,
+      data: {
+        makes: [],
+        bodyTypes: [],
+        fuelTypes: [],
+        transmissions: [],
+        priceRange: { min: 0, max: 100000 },
+      },
+    };
   }
 }
 
@@ -328,25 +337,27 @@ export async function getCarById(carId) {
       isWishlisted = !!savedCar; // convert into booleon
     }
 
-    const existingTestDrive = await db.testDriveBooking.findFirst({
-      where: {
-        carId,
-        userId: dbUser.id,
-        status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
     let userTestDrive = null;
 
-    if (existingTestDrive) {
-      userTestDrive = {
-        id: existingTestDrive.id,
-        status: existingTestDrive.status,
-        bookingDate: existingTestDrive.bookingDate.toISOString(),
-      };
+    if (dbUser) {
+      const existingTestDrive = await db.testDriveBooking.findFirst({
+        where: {
+          carId,
+          userId: dbUser.id,
+          status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+      if (existingTestDrive) {
+        userTestDrive = {
+          id: existingTestDrive.id,
+          status: existingTestDrive.status,
+          bookingDate: existingTestDrive.bookingDate.toISOString(),
+        };
+      }
     }
 
     // Get dealership info for test drive availability
