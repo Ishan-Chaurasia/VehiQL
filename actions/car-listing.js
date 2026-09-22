@@ -4,6 +4,7 @@ import { serializeCarData } from "@/lib/helper";
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { error } from "next/dist/build/output/log";
 import { includes, success } from "zod";
 
 export async function getCarFilters() {
@@ -327,27 +328,25 @@ export async function getCarById(carId) {
       isWishlisted = !!savedCar; // convert into booleon
     }
 
+    const existingTestDrive = await db.testDriveBooking.findFirst({
+      where: {
+        carId,
+        userId: dbUser.id,
+        status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
     let userTestDrive = null;
 
-    if (dbUser) {
-      const existingTestDrive = await db.testDriveBooking.findFirst({
-        where: {
-          carId,
-          userId: dbUser.id,
-          status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-      if (existingTestDrive) {
-        userTestDrive = {
-          id: existingTestDrive.id,
-          status: existingTestDrive.status,
-          bookingDate: existingTestDrive.bookingDate.toISOString(),
-        };
-      }
+    if (existingTestDrive) {
+      userTestDrive = {
+        id: existingTestDrive.id,
+        status: existingTestDrive.status,
+        bookingDate: existingTestDrive.bookingDate.toISOString(),
+      };
     }
 
     // Get dealership info for test drive availability

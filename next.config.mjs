@@ -3,6 +3,7 @@ const nextConfig = {
   /* config options here */
 
   experimental: {
+    serverComponentsHmrCache: false, // default to true
     serverActions: {
       bodySizeLimit: "10mb",
     },
