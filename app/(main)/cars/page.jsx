@@ -1,7 +1,8 @@
 import { getCarFilters } from "@/actions/car-listing";
-import React from "react";
+import React, { Suspense } from "react";
 import CarFilters from "./_components/car-filters";
 import CarListing from "./_components/car-listing";
+import CarListingsLoading from "./_components/car-listing-loading";
 
 export const metadata = {
   title: "Cars | Vehiql",
@@ -17,11 +18,15 @@ const CarsPage = async () => {
 
       <div className="flex flex-col lg:flex-row gap-8">
         <div className="w-full lg:w-80 shrink-0">
-          <CarFilters filters={filtersData.data} />
+          <Suspense fallback={<div className="h-60 rounded-lg border animate-pulse bg-gray-50" />}>
+            <CarFilters filters={filtersData.data} />
+          </Suspense>
         </div>
 
         <div className="flex-1">
-          <CarListing />
+          <Suspense fallback={<CarListingsLoading />}>
+            <CarListing />
+          </Suspense>
         </div>
       </div>
     </div>
