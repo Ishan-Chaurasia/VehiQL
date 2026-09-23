@@ -15,7 +15,7 @@ import Link from "next/link";
 import WebThreads from "@/components/WebThreads";
 import { getFeaturedCars } from "@/actions/home";
 
-const Home = async () => {
+export default async function Home() {
   const featuredCars = await getFeaturedCars();
 
   // Landing Page
@@ -243,5 +243,3 @@ const Home = async () => {
     </div>
   );
 }
-
-export default Home();
