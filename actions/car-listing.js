@@ -4,10 +4,9 @@ import { serializeCarData } from "@/lib/helper";
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
+import { error } from "next/dist/build/output/log";
+import { includes, success } from "zod";
 
-/**
- * Get simplified filters for the car marketplace
- */
 export async function getCarFilters() {
   try {
     // Get unique makes
@@ -67,26 +66,10 @@ export async function getCarFilters() {
       },
     };
   } catch (error) {
-    console.error("Error fetching car filters:", error.message);
-    return {
-      success: false,
-      data: {
-        makes: [],
-        bodyTypes: [],
-        fuelTypes: [],
-        transmissions: [],
-        priceRange: {
-          min: 0,
-          max: 100000,
-        },
-      },
-    };
+    throw new Error("Error fetching car filters:" + error.message);
   }
 }
 
-/**
- * Get cars with simplified filters
- */
 export async function getCars({
   search = "",
   make = "",
@@ -130,15 +113,12 @@ export async function getCars({
       where.transmission = { equals: transmission, mode: "insensitive" };
 
     // Add price range
-    const parsedMin = parseFloat(minPrice);
-    const parsedMax = parseFloat(maxPrice);
+    where.price = {
+      gte: parseFloat(minPrice) || 0,
+    };
 
-    if (!isNaN(parsedMin) && parsedMin > 0) {
-      where.price = { ...(where.price || {}), gte: parsedMin };
-    }
-
-    if (!isNaN(parsedMax) && parsedMax < 100000000) {
-      where.price = { ...(where.price || {}), lte: parsedMax };
+    if (maxPrice && maxPrice < Number.MAX_SAFE_INTEGER) {
+      where.price.lte = parseFloat(maxPrice);
     }
 
     // Calculate pagination
@@ -197,24 +177,10 @@ export async function getCars({
       },
     };
   } catch (error) {
-    console.error("Error fetching cars:", error.message);
-    return {
-      success: false,
-      error: error.message,
-      data: [],
-      pagination: {
-        total: 0,
-        page: 1,
-        limit,
-        pages: 0,
-      },
-    };
+    throw new Error("Error fetching cars:" + error.message);
   }
 }
 
-/**
- * Toggle car in user's wishlist
- */
 export async function toggleSavedCar(carId) {
   try {
     const { userId } = await auth();
@@ -226,7 +192,7 @@ export async function toggleSavedCar(carId) {
 
     if (!user) throw new Error("User not found");
 
-    // Check if car exists
+    // check if car exists
     const car = await db.car.findUnique({
       where: { id: carId },
     });
@@ -267,7 +233,6 @@ export async function toggleSavedCar(carId) {
       };
     }
 
-    // If car is not saved, add it
     await db.userSavedCar.create({
       data: {
         userId: user.id,
@@ -282,16 +247,53 @@ export async function toggleSavedCar(carId) {
       message: "Car added to favorites",
     };
   } catch (error) {
-    throw new Error("Error toggling saved car:" + error.message);
+    throw new Error("Error toggling saved car: " + error.message);
   }
 }
 
-/**
- * Get car details by ID
- */
+export async function getSavedCars() {
+  try {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
+
+    const user = await db.user.findUnique({
+      where: { clerkUserId: userId },
+    });
+
+    if (!user) {
+      return {
+        success: false,
+        error: "User not found",
+      };
+    }
+
+    const savedCars = await db.userSavedCar.findMany({
+      where: { userId: user.id },
+      include: {
+        car: true,
+      },
+      orderBy: {
+        savedAt: "desc",
+      },
+    });
+
+    const cars = savedCars.map((saved) => serializeCarData(saved.car));
+
+    return {
+      success: true,
+      data: cars,
+    };
+  } catch (error) {
+    console.error("Error fetching saved cars:", error);
+    return {
+      success: false,
+      error: error.message,
+    };
+  }
+}
+
 export async function getCarById(carId) {
   try {
-    // Get current user if authenticated
     const { userId } = await auth();
     let dbUser = null;
 
@@ -301,7 +303,6 @@ export async function getCarById(carId) {
       });
     }
 
-    // Get car details
     const car = await db.car.findUnique({
       where: { id: carId },
     });
@@ -313,10 +314,7 @@ export async function getCarById(carId) {
       };
     }
 
-    // Check if car is wishlisted by user & existing test drive bookings
     let isWishlisted = false;
-    let userTestDrive = null;
-
     if (dbUser) {
       const savedCar = await db.userSavedCar.findUnique({
         where: {
@@ -327,26 +325,28 @@ export async function getCarById(carId) {
         },
       });
 
-      isWishlisted = !!savedCar;
+      isWishlisted = !!savedCar; // convert into booleon
+    }
 
-      const existingTestDrive = await db.testDriveBooking.findFirst({
-        where: {
-          carId,
-          userId: dbUser.id,
-          status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
+    const existingTestDrive = await db.testDriveBooking.findFirst({
+      where: {
+        carId,
+        userId: dbUser.id,
+        status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-      if (existingTestDrive) {
-        userTestDrive = {
-          id: existingTestDrive.id,
-          status: existingTestDrive.status,
-          bookingDate: existingTestDrive.bookingDate.toISOString(),
-        };
-      }
+    let userTestDrive = null;
+
+    if (existingTestDrive) {
+      userTestDrive = {
+        id: existingTestDrive.id,
+        status: existingTestDrive.status,
+        bookingDate: existingTestDrive.bookingDate.toISOString(),
+      };
     }
 
     // Get dealership info for test drive availability
@@ -369,8 +369,8 @@ export async function getCarById(carId) {
                 updatedAt: dealership.updatedAt.toISOString(),
                 workingHours: dealership.workingHours.map((hour) => ({
                   ...hour,
-                  createdAt: hour.createdAt.toISOString(),
-                  updatedAt: hour.updatedAt.toISOString(),
+                  createdAt: hour.createdAt.toISOString(), // not using for now
+                  updatedAt: hour.updatedAt.toISOString(), // not using for now
                 })),
               }
             : null,
@@ -378,60 +378,6 @@ export async function getCarById(carId) {
       },
     };
   } catch (error) {
-    console.error("Error fetching car details:", error.message);
-    return {
-      success: false,
-      error: error.message,
-    };
-  }
-}
-
-/**
- * Get user's saved cars
- */
-export async function getSavedCars() {
-  try {
-    const { userId } = await auth();
-    if (!userId) {
-      return {
-        success: false,
-        error: "Unauthorized",
-      };
-    }
-
-    // Get the user from our database
-    const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
-    });
-
-    if (!user) {
-      return {
-        success: false,
-        error: "User not found",
-      };
-    }
-
-    // Get saved cars with their details
-    const savedCars = await db.userSavedCar.findMany({
-      where: { userId: user.id },
-      include: {
-        car: true,
-      },
-      orderBy: { savedAt: "desc" },
-    });
-
-    // Extract and format car data
-    const cars = savedCars.map((saved) => serializeCarData(saved.car));
-
-    return {
-      success: true,
-      data: cars,
-    };
-  } catch (error) {
-    console.error("Error fetching saved cars:", error);
-    return {
-      success: false,
-      error: error.message,
-    };
+    throw new Error("Error fetching car details:" + error.message);
   }
 }

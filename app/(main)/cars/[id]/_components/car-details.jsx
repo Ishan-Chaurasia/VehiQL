@@ -272,10 +272,10 @@ const CarDetails = ({ car, testDriveInfo }) => {
             <Button
               className="w-full py-6 text-lg"
               onClick={handleBookTestDrive}
-              disabled={Boolean(testDriveInfo?.userTestDrive)}
+              disabled={testDriveInfo.userTestDrive}
             >
               <Calendar className="mr-2 h-5 w-5" />
-              {testDriveInfo?.userTestDrive
+              {testDriveInfo.userTestDrive
                 ? `Booked for ${format(
                     new Date(testDriveInfo.userTestDrive.bookingDate),
                     "EEEE, MMMM d, yyyy",

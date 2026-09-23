@@ -15,7 +15,6 @@
     "@base-ui/react": "^1.7.0",
     "@clerk/nextjs": "^7.8.3",
     "@google/genai": "^2.20.0",
-    "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.9.1",
     "@hugeicons/core-free-icons": "^4.3.0",
     "@hugeicons/react": "^1.1.10",

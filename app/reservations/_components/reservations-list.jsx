@@ -20,11 +20,11 @@ const ReservationsList = ({ initialData }) => {
   };
 
   // Group bookings by status
-  const upcomingBookings = (initialData?.data || []).filter((booking) =>
+  const upcomingBookings = initialData?.data?.filter((booking) =>
     ["PENDING", "CONFIRMED"].includes(booking.status),
   );
 
-  const pastBookings = (initialData?.data || []).filter((booking) =>
+  const pastBookings = initialData?.data?.filter((booking) =>
     ["COMPLETED", "CANCELLED", "NO_SHOW"].includes(booking.status),
   );
 

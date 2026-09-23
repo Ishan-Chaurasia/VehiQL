@@ -22,13 +22,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export const CarFilters = ({ filters }) => {
+const CarFilters = ({ filters }) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  const defaultMinPrice = filters?.priceRange?.min ?? 0;
-  const defaultMaxPrice = filters?.priceRange?.max ?? 100000;
 
   // Get current filter values from searchParams
   const currentMake = searchParams.get("make") || "";
@@ -37,10 +34,10 @@ export const CarFilters = ({ filters }) => {
   const currentTransmission = searchParams.get("transmission") || "";
   const currentMinPrice = searchParams.get("minPrice")
     ? parseInt(searchParams.get("minPrice"))
-    : defaultMinPrice;
+    : filters.priceRange.min;
   const currentMaxPrice = searchParams.get("maxPrice")
     ? parseInt(searchParams.get("maxPrice"))
-    : defaultMaxPrice;
+    : filters.priceRange.max;
   const currentSortBy = searchParams.get("sortBy") || "newest";
 
   // Local state for filters
@@ -117,8 +114,8 @@ export const CarFilters = ({ filters }) => {
     sortBy,
     pathname,
     searchParams,
-    defaultMinPrice,
-    defaultMaxPrice,
+    filters.priceRange.min,
+    filters.priceRange.max,
   ]);
 
   // Handle filter changes
@@ -153,7 +150,7 @@ export const CarFilters = ({ filters }) => {
     setBodyType("");
     setFuelType("");
     setTransmission("");
-    setPriceRange([defaultMinPrice, defaultMaxPrice]);
+    setPriceRange([filters.priceRange.min, filters.priceRange.max]);
     setSortBy("newest");
 
     // Keep search term if exists
@@ -175,8 +172,8 @@ export const CarFilters = ({ filters }) => {
     fuelType,
     transmission,
     priceRange,
-    priceRangeMin: defaultMinPrice,
-    priceRangeMax: defaultMaxPrice,
+    priceRangeMin: filters.priceRange.min,
+    priceRangeMax: filters.priceRange.max,
   };
 
   return (
@@ -185,16 +182,16 @@ export const CarFilters = ({ filters }) => {
       <div className="lg:hidden mb-4">
         <div className="flex items-center">
           <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                Filters
-                {activeFilterCount > 0 && (
-                  <Badge className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </Button>
+            <SheetTrigger
+              render={<Button className="flex items-center gap-2" />}
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {activeFilterCount > 0 && (
+                <Badge className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                  {activeFilterCount}
+                </Badge>
+              )}
             </SheetTrigger>
             <SheetContent
               side="left"
@@ -239,7 +236,7 @@ export const CarFilters = ({ filters }) => {
           setTimeout(() => applyFilters(), 0);
         }}
       >
-        <SelectTrigger className="w-[180px] lg:w-full">
+        <SelectTrigger className="w-45 lg:w-full">
           <SelectValue placeholder="Sort by" />
         </SelectTrigger>
         <SelectContent>
@@ -295,3 +292,5 @@ export const CarFilters = ({ filters }) => {
     </div>
   );
 };
+
+export default CarFilters;
