@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const CarFilters = ({ filters }) => {
+export const CarFilters = ({ filters }) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -185,16 +185,16 @@ const CarFilters = ({ filters }) => {
       <div className="lg:hidden mb-4">
         <div className="flex items-center">
           <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-            <SheetTrigger
-              render={<Button className="flex items-center gap-2" />}
-            >
-              <Filter className="h-4 w-4" />
-              Filters
-              {activeFilterCount > 0 && (
-                <Badge className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center">
-                  {activeFilterCount}
-                </Badge>
-              )}
+            <SheetTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2">
+                <Filter className="h-4 w-4" />
+                Filters
+                {activeFilterCount > 0 && (
+                  <Badge className="ml-1 h-5 w-5 rounded-full p-0 flex items-center justify-center">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
             </SheetTrigger>
             <SheetContent
               side="left"
@@ -239,7 +239,7 @@ const CarFilters = ({ filters }) => {
           setTimeout(() => applyFilters(), 0);
         }}
       >
-        <SelectTrigger className="w-45 lg:w-full">
+        <SelectTrigger className="w-[180px] lg:w-full">
           <SelectValue placeholder="Sort by" />
         </SelectTrigger>
         <SelectContent>
@@ -295,5 +295,3 @@ const CarFilters = ({ filters }) => {
     </div>
   );
 };
-
-export default CarFilters;
