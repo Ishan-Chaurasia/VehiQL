@@ -14,6 +14,8 @@ export const metadata = {
   description: "Find your dream Car",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({ children }) {
   return (
     <ClerkProvider>
