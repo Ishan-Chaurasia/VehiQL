@@ -130,12 +130,15 @@ export async function getCars({
       where.transmission = { equals: transmission, mode: "insensitive" };
 
     // Add price range
-    where.price = {
-      gte: parseFloat(minPrice) || 0,
-    };
+    const parsedMin = parseFloat(minPrice);
+    const parsedMax = parseFloat(maxPrice);
 
-    if (maxPrice && maxPrice < Number.MAX_SAFE_INTEGER) {
-      where.price.lte = parseFloat(maxPrice);
+    if (!isNaN(parsedMin) && parsedMin > 0) {
+      where.price = { ...(where.price || {}), gte: parsedMin };
+    }
+
+    if (!isNaN(parsedMax) && parsedMax < 100000000) {
+      where.price = { ...(where.price || {}), lte: parsedMax };
     }
 
     // Calculate pagination
@@ -194,7 +197,18 @@ export async function getCars({
       },
     };
   } catch (error) {
-    throw new Error("Error fetching cars:" + error.message);
+    console.error("Error fetching cars:", error.message);
+    return {
+      success: false,
+      error: error.message,
+      data: [],
+      pagination: {
+        total: 0,
+        page: 1,
+        limit,
+        pages: 0,
+      },
+    };
   }
 }
 
@@ -299,8 +313,10 @@ export async function getCarById(carId) {
       };
     }
 
-    // Check if car is wishlisted by user
+    // Check if car is wishlisted by user & existing test drive bookings
     let isWishlisted = false;
+    let userTestDrive = null;
+
     if (dbUser) {
       const savedCar = await db.userSavedCar.findUnique({
         where: {
@@ -312,28 +328,25 @@ export async function getCarById(carId) {
       });
 
       isWishlisted = !!savedCar;
-    }
 
-    // Check if user has already booked a test drive for this car
-    const existingTestDrive = await db.testDriveBooking.findFirst({
-      where: {
-        carId,
-        userId: dbUser.id,
-        status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+      const existingTestDrive = await db.testDriveBooking.findFirst({
+        where: {
+          carId,
+          userId: dbUser.id,
+          status: { in: ["PENDING", "CONFIRMED", "COMPLETED"] },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
 
-    let userTestDrive = null;
-
-    if (existingTestDrive) {
-      userTestDrive = {
-        id: existingTestDrive.id,
-        status: existingTestDrive.status,
-        bookingDate: existingTestDrive.bookingDate.toISOString(),
-      };
+      if (existingTestDrive) {
+        userTestDrive = {
+          id: existingTestDrive.id,
+          status: existingTestDrive.status,
+          bookingDate: existingTestDrive.bookingDate.toISOString(),
+        };
+      }
     }
 
     // Get dealership info for test drive availability
@@ -365,7 +378,11 @@ export async function getCarById(carId) {
       },
     };
   } catch (error) {
-    throw new Error("Error fetching car details:" + error.message);
+    console.error("Error fetching car details:", error.message);
+    return {
+      success: false,
+      error: error.message,
+    };
   }
 }
 
