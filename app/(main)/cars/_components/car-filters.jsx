@@ -27,6 +27,9 @@ const CarFilters = ({ filters }) => {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const defaultMinPrice = filters?.priceRange?.min ?? 0;
+  const defaultMaxPrice = filters?.priceRange?.max ?? 100000;
+
   // Get current filter values from searchParams
   const currentMake = searchParams.get("make") || "";
   const currentBodyType = searchParams.get("bodyType") || "";
@@ -34,10 +37,10 @@ const CarFilters = ({ filters }) => {
   const currentTransmission = searchParams.get("transmission") || "";
   const currentMinPrice = searchParams.get("minPrice")
     ? parseInt(searchParams.get("minPrice"))
-    : filters?.priceRange?.min ?? 0;
+    : defaultMinPrice;
   const currentMaxPrice = searchParams.get("maxPrice")
     ? parseInt(searchParams.get("maxPrice"))
-    : filters?.priceRange?.max ?? 100000;
+    : defaultMaxPrice;
   const currentSortBy = searchParams.get("sortBy") || "newest";
 
   // Local state for filters
@@ -114,8 +117,8 @@ const CarFilters = ({ filters }) => {
     sortBy,
     pathname,
     searchParams,
-    filters.priceRange.min,
-    filters.priceRange.max,
+    defaultMinPrice,
+    defaultMaxPrice,
   ]);
 
   // Handle filter changes
@@ -150,7 +153,7 @@ const CarFilters = ({ filters }) => {
     setBodyType("");
     setFuelType("");
     setTransmission("");
-    setPriceRange([filters.priceRange.min, filters.priceRange.max]);
+    setPriceRange([defaultMinPrice, defaultMaxPrice]);
     setSortBy("newest");
 
     // Keep search term if exists
@@ -172,8 +175,8 @@ const CarFilters = ({ filters }) => {
     fuelType,
     transmission,
     priceRange,
-    priceRangeMin: filters.priceRange.min,
-    priceRangeMax: filters.priceRange.max,
+    priceRangeMin: defaultMinPrice,
+    priceRangeMax: defaultMaxPrice,
   };
 
   return (

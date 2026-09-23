@@ -304,8 +304,7 @@ export async function deleteCar(id) {
 
     // Delete the images from Supabase storage
     try {
-      const cookieStore = cookies();
-      const supabase = createClient(cookieStore);
+      const supabase = await createClient();
 
       // Extract file paths from image URLs
       const filePaths = car.images

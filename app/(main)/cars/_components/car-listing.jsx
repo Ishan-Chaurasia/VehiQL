@@ -66,11 +66,11 @@ const CarListing = () => {
     page,
   ]);
 
-  if (loading && !result) {
+  if (loading || (!result && !error)) {
     return <CarListingsLoading />;
   }
 
-  if (error || (!result && !result?.success)) {
+  if (error || (result && !result.success)) {
     return (
       <Alert variant="destructive">
         <Info className="h-4 w-4" />

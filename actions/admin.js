@@ -3,24 +3,28 @@
 import { serializeCarData } from "@/lib/helper";
 import { db } from "@/lib/prisma";
 import { auth } from "@clerk/nextjs/server";
-import { OK } from "zod/v3";
 
 export async function getAdmin() {
-  const { userId } = await auth();
-  // Do something with the authenticated user ID
-  if (!userId) throw new Error("Unauthorized");
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return { authorized: false, reason: "Unauthorized" };
+    }
 
-  // Fetch admin-specific data
-  const user = await db.user.findUnique({
-    where: {
-      clerkUserId: userId,
-    },
-  });
+    const user = await db.user.findUnique({
+      where: {
+        clerkUserId: userId,
+      },
+    });
 
-  if (!user || user.role !== "ADMIN") {
-    return { authorized: false, reason: "Not-Admin" };
+    if (!user || user.role !== "ADMIN") {
+      return { authorized: false, reason: "Not-Admin" };
+    }
+    return { authorized: true, user };
+  } catch (error) {
+    console.error("Error checking admin status:", error.message);
+    return { authorized: false, reason: error.message };
   }
-  return { authorized: true, user };
 }
 
 export async function getAdminTestDrives({ search = "", status = "" }) {
