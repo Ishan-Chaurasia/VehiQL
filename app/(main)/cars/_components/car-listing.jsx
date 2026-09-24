@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info } from "lucide-react";
-import { CarCard } from "@/components/car-card";
+import CarCard from "@/components/car-card";
 import useFetch from "@/hooks/use-fetch";
 import { getCars } from "@/actions/car-listing";
 import CarListingsLoading from "./car-listing-loading";
@@ -89,7 +89,7 @@ export function CarListings() {
   };
 
   // Show loading state
-  if (loading && !result) {
+  if ((loading || !result) && !error) {
     return <CarListingsLoading />;
   }
 
@@ -251,3 +251,5 @@ export function CarListings() {
     </div>
   );
 }
+
+export default CarListings;

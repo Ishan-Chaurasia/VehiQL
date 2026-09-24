@@ -135,63 +135,96 @@ export async function processCarImageWithAI(file) {
   }
 }
 
-export async function addCar({ carData, images }) {
+export async function addCar(formData) {
   try {
     const { userId } = await auth();
-    if (!userId) throw new Error("Unauthorized");
+
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
 
     const user = await db.user.findUnique({
-      where: { clerkUserId: userId },
+      where: {
+        clerkUserId: userId,
+      },
     });
 
-    if (!user) throw new Error("User not found");
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    // Get car data from FormData
+    const carDataString = formData.get("carData");
+
+    if (!carDataString) {
+      throw new Error("Car data is missing");
+    }
+
+    const carData = JSON.parse(carDataString);
+
+    // Get all uploaded image files
+    const images = formData.getAll("images");
+
+    if (!images || images.length === 0) {
+      throw new Error("No images were uploaded");
+    }
 
     // Create a unique folder name for this car's images
     const carId = uuidv4();
     const folderPath = `cars/${carId}`;
 
-    // Initialize Supabase client for server-side operations
-
+    // Initialize Supabase client
     const supabase = await createClient();
 
-    // Upload all images to Supabase storage
+    // Upload all images to Supabase Storage
     const imageUrls = [];
 
     for (let i = 0; i < images.length; i++) {
-      const base64Data = images[i];
+      const image = images[i];
 
-      // Skip if image data is not valid
-      if (!base64Data || !base64Data.startsWith("data:image/")) {
-        console.warn("Skipping invalid image data");
+      // Make sure this is actually a File
+      if (!(image instanceof File)) {
+        console.warn("Skipping invalid image");
         continue;
       }
 
-      // Extract the base64 part (remove the data:image/xyz;base64, prefix)
-      const base64 = base64Data.split(",")[1];
-      const imageBuffer = Buffer.from(base64, "base64");
+      // Convert File to Buffer
+      const imageBuffer = Buffer.from(
+        await image.arrayBuffer()
+      );
 
-      // Determine file extension from the data URL
-      const mimeMatch = base64Data.match(/data:image\/([a-zA-Z0-9]+);/);
-      const fileExtension = mimeMatch ? mimeMatch[1] : "jpeg";
+      // Determine file extension
+      const fileExtension =
+        image.name?.split(".").pop()?.toLowerCase() ||
+        "jpeg";
 
       // Create filename
       const fileName = `image-${Date.now()}-${i}.${fileExtension}`;
+
       const filePath = `${folderPath}/${fileName}`;
 
-      // Upload the file buffer directly
-      const { data, error } = await supabase.storage
+      // Upload to Supabase Storage
+      const { error } = await supabase.storage
         .from("car-images")
         .upload(filePath, imageBuffer, {
-          contentType: `image/${fileExtension}`,
+          contentType:
+            image.type || `image/${fileExtension}`,
+          upsert: false,
         });
 
       if (error) {
-        console.error("Error uploading image:", error);
-        throw new Error(`Failed to upload image: ${error.message}`);
+        console.error(
+          "Error uploading image:",
+          error
+        );
+
+        throw new Error(
+          `Failed to upload image: ${error.message}`
+        );
       }
 
-      // Get the public URL for the uploaded file
-      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/car-images/${filePath}`; // disable cache in config
+      // Get public URL
+      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/car-images/${filePath}`;
 
       imageUrls.push(publicUrl);
     }
@@ -200,10 +233,10 @@ export async function addCar({ carData, images }) {
       throw new Error("No valid images were uploaded");
     }
 
-    // Add the car to the database
-    const car = await db.car.create({
+    // Add car to database
+    await db.car.create({
       data: {
-        id: carId, // Use the same ID we used for the folder
+        id: carId,
         make: carData.make,
         model: carData.model,
         year: carData.year,
@@ -217,18 +250,22 @@ export async function addCar({ carData, images }) {
         description: carData.description,
         status: carData.status,
         featured: carData.featured,
-        images: imageUrls, // Store the array of image URLs
+        images: imageUrls,
       },
     });
 
-    // Revalidate the cars list page
+    // Revalidate cars list
     revalidatePath("/admin/cars");
 
     return {
       success: true,
     };
   } catch (error) {
-    throw new Error("Error adding car:" + error.message);
+    console.error("Error adding car:", error);
+
+    throw new Error(
+      "Error adding car:" + error.message
+    );
   }
 }
 
@@ -304,8 +341,7 @@ export async function deleteCar(id) {
 
     // Delete the images from Supabase storage
     try {
-      const cookieStore = cookies();
-      const supabase = createClient(cookieStore);
+      const supabase = await createClient();
 
       // Extract file paths from image URLs
       const filePaths = car.images

@@ -3,6 +3,9 @@ import React from "react";
 import CarFilters from "./_components/car-filters";
 import CarListing from "./_components/car-listing";
 
+import { Suspense } from "react";
+import CarListingsLoading from "./_components/car-listing-loading";
+
 export const metadata = {
   title: "Cars | Vehiql",
   description: "Browse and search for your dream car",
@@ -21,7 +24,9 @@ const CarsPage = async () => {
         </div>
 
         <div className="flex-1">
-          <CarListing />
+          <Suspense fallback={<CarListingsLoading />}>
+            <CarListing />
+          </Suspense>
         </div>
       </div>
     </div>
