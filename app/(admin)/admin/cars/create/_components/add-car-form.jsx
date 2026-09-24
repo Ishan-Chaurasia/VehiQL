@@ -3,23 +3,15 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { toast } from "sonner";
-import { Camera, Loader2, Upload, X } from "lucide-react";
+import { Camera, ImagePlus, Loader2, X, Upload } from "lucide-react";
 import { useDropzone } from "react-dropzone";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -27,11 +19,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import Image from "next/image";
-import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
 import { addCar, processCarImageWithAI } from "@/actions/cars";
 import useFetch from "@/hooks/use-fetch";
+import Image from "next/image";
 
+// Predefined options
 const fuelTypes = ["Petrol", "Diesel", "Electric", "Hybrid", "Plug-in Hybrid"];
 const transmissions = ["Automatic", "Manual", "Semi-Automatic"];
 const bodyTypes = [
@@ -45,6 +47,27 @@ const bodyTypes = [
 ];
 const carStatuses = ["AVAILABLE", "UNAVAILABLE", "SOLD"];
 
+// Define form schema with Zod
+const carFormSchema = z.object({
+  make: z.string().min(1, "Make is required"),
+  model: z.string().min(1, "Model is required"),
+  year: z.string().refine((val) => {
+    const year = parseInt(val);
+    return !isNaN(year) && year >= 1900 && year <= new Date().getFullYear() + 1;
+  }, "Valid year required"),
+  price: z.string().min(1, "Price is required"),
+  mileage: z.string().min(1, "Mileage is required"),
+  color: z.string().min(1, "Color is required"),
+  fuelType: z.string().min(1, "Fuel type is required"),
+  transmission: z.string().min(1, "Transmission is required"),
+  bodyType: z.string().min(1, "Body type is required"),
+  seats: z.string().optional(),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  status: z.enum(["AVAILABLE", "UNAVAILABLE", "SOLD"]),
+  featured: z.boolean().default(false),
+  // Images are handled separately
+});
+
 export const AddCarForm = () => {
   const router = useRouter();
   const [imagePreview, setImagePreview] = useState(null);
@@ -53,30 +76,6 @@ export const AddCarForm = () => {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [activeTab, setActiveTab] = useState("ai");
   const [imageError, setImageError] = useState("");
-
-  const carFormSchema = z.object({
-    make: z.string().min(1, "Make is required"),
-    model: z.string().min(1, "Model is required"),
-    year: z.string().refine((val) => {
-      const year = parseInt(val);
-      return (
-        !isNaN(year) && year >= 1900 && year <= new Date().getFullYear() + 1
-      );
-    }, "Valid year required"),
-    price: z.string().min(1, "Price is required"),
-    mileage: z.string().min(1, "Mileage is required"),
-    color: z.string().min(1, "Color is required"),
-    fuelType: z.string().min(1, "Fuel type is required"),
-    transmission: z.string().min(1, "Transmission is required"),
-    bodyType: z.string().min(1, "Body type is required"),
-    seats: z.string().optional(),
-    description: z
-      .string()
-      .min(10, "Description must be at least 10 characters"),
-    status: z.enum(["AVAILABLE", "UNAVAILABLE", "SOLD"]),
-    featured: z.boolean().default(false),
-    // Images are handled separately
-  });
 
   // Initialize form with react-hook-form and zod
   const {
@@ -105,42 +104,11 @@ export const AddCarForm = () => {
     },
   });
 
-  const onAiDrop = (acceptedFiles) => {
-    const file = acceptedFiles[0];
-
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("Image size must be less than 5MB");
-        return;
-      }
-
-      setUploadedAiImage(file);
-
-      // filed reader to create a preview of the image
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target.result);
-        toast.success("Image uploaded successfully");
-      };
-
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const { getRootProps: getAiRootProps, getInputProps: getAiInputProps } =
-    useDropzone({
-      onDrop: onAiDrop,
-      accept: {
-        "image/*": [".jpeg", ".jpg", ".png", ".webp"],
-      },
-      maxFiles: 1,
-      multiple: false,
-    });
-
+  // Custom hooks for API calls
   const {
-    data: addCardResult,
     loading: addCarLoading,
     fn: addCarFn,
+    data: addCarResult,
   } = useFetch(addCar);
 
   const {
@@ -150,13 +118,13 @@ export const AddCarForm = () => {
     error: processImageError,
   } = useFetch(processCarImageWithAI);
 
-  const processWithAI = async () => {
-    if (!uploadedAiImage) {
-      toast.error("Please upload an image first");
-      return;
+  // Handle successful car addition
+  useEffect(() => {
+    if (addCarResult?.success) {
+      toast.success("Car added successfully");
+      router.push("/admin/cars");
     }
-    await processImageFn(uploadedAiImage);
-  };
+  }, [addCarResult, router]);
 
   useEffect(() => {
     if (processImageError) {
@@ -172,7 +140,7 @@ export const AddCarForm = () => {
       // Update form with AI results
       setValue("make", carDetails.make);
       setValue("model", carDetails.model);
-      setValue("year", carDetails.year?.toString() || "");
+      setValue("year", carDetails.year.toString());
       setValue("color", carDetails.color);
       setValue("bodyType", carDetails.bodyType);
       setValue("fuelType", carDetails.fuelType);
@@ -180,8 +148,8 @@ export const AddCarForm = () => {
       setValue("mileage", carDetails.mileage);
       setValue("transmission", carDetails.transmission);
       setValue("description", carDetails.description);
+
       // Add the image to the uploaded images
-      
       const reader = new FileReader();
       reader.onload = (e) => {
         setUploadedImages((prev) => [...prev, e.target.result]);
@@ -199,33 +167,46 @@ export const AddCarForm = () => {
     }
   }, [processImageResult, setValue, uploadedAiImage]);
 
-  useEffect(() => {
-    if (addCardResult?.success) {
-      toast.success("Car added successfully");
-      router.push("/admin/cars");
-    }
-  }, [addCardResult, addCarLoading]);
-
-  const onSubmit = async (data) => {
-    if (uploadedImages.length === 0) {
-      setImageError("Please Upload at least one image");
+  // Process image with Gemini AI
+  const processWithAI = async () => {
+    if (!uploadedAiImage) {
+      toast.error("Please upload an image first");
       return;
     }
 
-    const carData = {
-      ...data,
-      year: parseInt(data.year),
-      price: parseFloat(data.price),
-      mileage: parseInt(data.mileage),
-      seats: data.seats ? parseInt(data.seats) : null,
-    };
-
-    await addCarFn({
-      carData,
-      images: uploadedImages,
-    });
+    await processImageFn(uploadedAiImage);
   };
 
+  // Handle AI image upload with Dropzone
+  const onAiDrop = useCallback((acceptedFiles) => {
+    const file = acceptedFiles[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size should be less than 5MB");
+      return;
+    }
+
+    setUploadedAiImage(file);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const { getRootProps: getAiRootProps, getInputProps: getAiInputProps } =
+    useDropzone({
+      onDrop: onAiDrop,
+      accept: {
+        "image/*": [".jpeg", ".jpg", ".png", ".webp"],
+      },
+      maxFiles: 1,
+      multiple: false,
+    });
+
+  // Handle multiple image uploads with Dropzone
   const onMultiImagesDrop = useCallback((acceptedFiles) => {
     const validFiles = acceptedFiles.filter((file) => {
       if (file.size > 5 * 1024 * 1024) {
@@ -259,7 +240,7 @@ export const AddCarForm = () => {
               setUploadProgress(0);
               setImageError("");
               toast.success(
-                `Successfully uploaded ${validFiles.length} images`,
+                `Successfully uploaded ${validFiles.length} images`
               );
             }
           };
@@ -280,22 +261,47 @@ export const AddCarForm = () => {
     multiple: true,
   });
 
+  // Remove image from upload preview
   const removeImage = (index) => {
     setUploadedImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const onSubmit = async (data) => {
+    // Check if images are uploaded
+    if (uploadedImages.length === 0) {
+      setImageError("Please upload at least one image");
+      return;
+    }
+
+    // Prepare data for server action
+    const carData = {
+      ...data,
+      year: parseInt(data.year),
+      price: parseFloat(data.price),
+      mileage: parseInt(data.mileage),
+      seats: data.seats ? parseInt(data.seats) : null,
+    };
+
+    // Call the addCar function with our useFetch hook
+    await addCarFn({
+      carData,
+      images: uploadedImages,
+    });
   };
 
   return (
     <div>
       <Tabs
         defaultValue="ai"
-        className="mt-6"
         value={activeTab}
         onValueChange={setActiveTab}
+        className="mt-6"
       >
-        <TabsList variant="line" className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="manual">Manual Entry</TabsTrigger>
           <TabsTrigger value="ai">AI Upload</TabsTrigger>
         </TabsList>
+
         <TabsContent value="manual" className="mt-6">
           <Card>
             <CardHeader>
@@ -305,7 +311,6 @@ export const AddCarForm = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Form */}
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {/* Make */}
@@ -407,10 +412,9 @@ export const AddCarForm = () => {
                   {/* Fuel Type */}
                   <div className="space-y-2">
                     <Label htmlFor="fuelType">Fuel Type</Label>
-
                     <Select
-                      value={watch("fuelType")}
                       onValueChange={(value) => setValue("fuelType", value)}
+                      defaultValue={getValues("fuelType")}
                     >
                       <SelectTrigger
                         className={errors.fuelType ? "border-red-500" : ""}
@@ -425,7 +429,6 @@ export const AddCarForm = () => {
                         ))}
                       </SelectContent>
                     </Select>
-
                     {errors.fuelType && (
                       <p className="text-xs text-red-500">
                         {errors.fuelType.message}
@@ -437,8 +440,8 @@ export const AddCarForm = () => {
                   <div className="space-y-2">
                     <Label htmlFor="transmission">Transmission</Label>
                     <Select
-                      value={watch("transmission")}
                       onValueChange={(value) => setValue("transmission", value)}
+                      defaultValue={getValues("transmission")}
                     >
                       <SelectTrigger
                         className={errors.transmission ? "border-red-500" : ""}
@@ -464,8 +467,8 @@ export const AddCarForm = () => {
                   <div className="space-y-2">
                     <Label htmlFor="bodyType">Body Type</Label>
                     <Select
-                      value={watch("bodyType")}
                       onValueChange={(value) => setValue("bodyType", value)}
+                      defaultValue={getValues("bodyType")}
                     >
                       <SelectTrigger
                         className={errors.bodyType ? "border-red-500" : ""}
@@ -504,8 +507,8 @@ export const AddCarForm = () => {
                   <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
                     <Select
-                      value={watch("status")}
                       onValueChange={(value) => setValue("status", value)}
+                      defaultValue={getValues("status")}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select status" />
@@ -556,67 +559,78 @@ export const AddCarForm = () => {
                   </div>
                 </div>
 
-                {/* Image Upload */}
+                {/* Image Upload with Dropzone */}
                 <div>
                   <Label
                     htmlFor="images"
                     className={imageError ? "text-red-500" : ""}
                   >
-                    Images{""}
+                    Images{" "}
                     {imageError && <span className="text-red-500">*</span>}
                   </Label>
-                  <div
-                    {...getMultiImageRootProps()}
-                    className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-gray-50 transition mt-2 ${
-                      imageError ? "border-red-500" : "border-gray-300"
-                    }`}
-                  >
-                    <input {...getMultiImageInputProps()} />
-                    <div className="flex flex-col items-center justify-center">
-                      <Upload className="h-12 w-12 text-gray-400 mb-3" />
-                      <p className=" text-sm text-gray-600">
-                        Drag & drop or Click to upload multiple images
-                      </p>
-                      <span className="text-xs text-gray-500 mt-1">
-                        (JPG, PNG, WebP, max 5MB each)
-                      </span>
+                  <div className="mt-2">
+                    <div
+                      {...getMultiImageRootProps()}
+                      className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-gray-50 transition ${
+                        imageError ? "border-red-500" : "border-gray-300"
+                      }`}
+                    >
+                      <input {...getMultiImageInputProps()} />
+                      <div className="flex flex-col items-center justify-center">
+                        <Upload className="h-12 w-12 text-gray-400 mb-3" />
+                        <span className="text-sm text-gray-600">
+                          Drag & drop or click to upload multiple images
+                        </span>
+                        <span className="text-xs text-gray-500 mt-1">
+                          (JPG, PNG, WebP, max 5MB each)
+                        </span>
+                      </div>
                     </div>
+                    {imageError && (
+                      <p className="text-xs text-red-500 mt-1">{imageError}</p>
+                    )}
+                    {uploadProgress > 0 && (
+                      <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
+                        <div
+                          className="bg-blue-600 h-2.5 rounded-full"
+                          style={{ width: `${uploadProgress}%` }}
+                        ></div>
+                      </div>
+                    )}
                   </div>
-                  {imageError && (
-                    <p className="text-xs text-red-500 mt-1">{imageError}</p>
+
+                  {/* Image Previews */}
+                  {uploadedImages.length > 0 && (
+                    <div className="mt-4">
+                      <h3 className="text-sm font-medium mb-2">
+                        Uploaded Images ({uploadedImages.length})
+                      </h3>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {uploadedImages.map((image, index) => (
+                          <div key={index} className="relative group">
+                            <Image
+                              src={image}
+                              alt={`Car image ${index + 1}`}
+                              height={50}
+                              width={50}
+                              className="h-28 w-full object-cover rounded-md"
+                              priority
+                            />
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="destructive"
+                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => removeImage(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
-
-                {uploadedImages.length > 0 && (
-                  <div className="mt-4">
-                    <h3 className="text-sm font-medium mb-2">
-                      Uploaded Images ({uploadedImages.length})
-                    </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                      {uploadedImages.map((image, index) => (
-                        <div key={index} className="relative group">
-                          <Image
-                            src={image}
-                            alt={`Car image ${index + 1}`}
-                            height={50}
-                            width={50}
-                            className="h-28 w-full object-cover rounded-md"
-                            priority
-                          />
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="destructive"
-                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => removeImage(index)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 <Button
                   type="submit"
@@ -636,6 +650,7 @@ export const AddCarForm = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="ai" className="mt-6">
           <Card>
             <CardHeader>
@@ -666,9 +681,9 @@ export const AddCarForm = () => {
                           Remove
                         </Button>
                         <Button
-                          size="sm"
                           onClick={processWithAI}
                           disabled={processImageLoading}
+                          size="sm"
                         >
                           {processImageLoading ? (
                             <>
@@ -691,18 +706,29 @@ export const AddCarForm = () => {
                     >
                       <input {...getAiInputProps()} />
                       <div className="flex flex-col items-center justify-center">
-                        <Camera className="h-12 w-12 text-gray-400 mb-2" />
-                        <p className="text-gray-600 text-sm">
-                          Drag & drop a car image or click to select
-                        </p>
-
-                        <p className="text-gray-500 text-xs mt-1">
-                          Supports: JPG, PNG, WebP (max 5MB)
-                        </p>
+                        <Camera className="h-12 w-12 text-gray-400 mb-3" />
+                        <span className="text-sm text-gray-600">
+                          Drag & drop or click to upload a car image
+                        </span>
+                        <span className="text-xs text-gray-500 mt-1">
+                          (JPG, PNG, WebP, max 5MB)
+                        </span>
                       </div>
                     </div>
                   )}
                 </div>
+
+                {processImageLoading && (
+                  <div className="bg-blue-50 text-blue-700 p-4 rounded-md flex items-center">
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                    <div>
+                      <p className="font-medium">Analyzing image...</p>
+                      <p className="text-sm">
+                        Gemini AI is extracting car details
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 <div className="bg-gray-50 p-4 rounded-md">
                   <h3 className="font-medium mb-2">How it works</h3>
